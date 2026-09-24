@@ -1,382 +1,1337 @@
-/*
-@title: tetris
-@description: A retro-themed version of Tetris!
-@author: neesh
-@tags: ["endless" , "puzzle" , "retro"]
-@addedOn: 2022-09-12
-*/
+// ====================
+// TETRIS
+// ====================
 
-const rows = 12;
-const cols = 8;
-const borders = false;
-const emptyColor = "0";
-const background = "b";
-
-setLegend( 
-  [ background, bitmap`
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000`]
-);
-
-const iPiece = [
-      [  true,  true,  true,  true ]
-  ]
-const jPiece = [
-      [  true, false, false ],
-      [  true,  true,  true ]
-]
-const lPiece = [
-    [ false, false,  true ],
-    [  true,  true,  true ]
-]
-const oPiece = [
-    [  true,  true ],
-    [  true,  true ]
-]
-const sPiece = [
-    [ false,  true,  true ],
-    [  true,  true, false ]
-]
-const tPiece = [
-    [ false,  true, false ],
-    [  true,  true,  true ]
-]
-const zPiece = [
-    [  true,  true, false ],
-    [ false,  true,  true ]
-]
-let board = [];
-let score = 0;
-const music = tune`
-214.28571428571428: e5-214.28571428571428 + e2/214.28571428571428,
-214.28571428571428: e3/214.28571428571428,
-214.28571428571428: b4-214.28571428571428 + e2/214.28571428571428,
-214.28571428571428: c5-214.28571428571428 + e3/214.28571428571428,
-214.28571428571428: d5-214.28571428571428 + e2/214.28571428571428,
-214.28571428571428: e3/214.28571428571428,
-214.28571428571428: c5-214.28571428571428 + e2/214.28571428571428,
-214.28571428571428: b4-214.28571428571428 + e3/214.28571428571428,
-214.28571428571428: a4-214.28571428571428 + a2/214.28571428571428,
-214.28571428571428: a3/214.28571428571428,
-214.28571428571428: a4-214.28571428571428 + a2/214.28571428571428,
-214.28571428571428: c5-214.28571428571428 + a3/214.28571428571428,
-214.28571428571428: e5-214.28571428571428 + a2/214.28571428571428,
-214.28571428571428: a3/214.28571428571428,
-214.28571428571428: d5-214.28571428571428 + a2/214.28571428571428,
-214.28571428571428: c5-214.28571428571428 + a3/214.28571428571428,
-214.28571428571428: b4-214.28571428571428 + e2/214.28571428571428,
-214.28571428571428: e3/214.28571428571428,
-214.28571428571428: b4-214.28571428571428 + e2/214.28571428571428,
-214.28571428571428: c5-214.28571428571428 + e3/214.28571428571428,
-214.28571428571428: d5-214.28571428571428 + e2/214.28571428571428,
-214.28571428571428: e3/214.28571428571428,
-214.28571428571428: e5-214.28571428571428 + e2/214.28571428571428,
-214.28571428571428: e3/214.28571428571428,
-214.28571428571428: c5-214.28571428571428 + a2/214.28571428571428,
-214.28571428571428: a3/214.28571428571428,
-214.28571428571428: a4-214.28571428571428 + a2/214.28571428571428,
-214.28571428571428: a3/214.28571428571428,
-214.28571428571428: a4-214.28571428571428 + a2/214.28571428571428,
-214.28571428571428: a3/214.28571428571428,
-214.28571428571428: a2/214.28571428571428,
-214.28571428571428: a3/214.28571428571428`
-let playback = playTune(music, Infinity)
-for (let i = 0; i < rows; i ++){
-  const row = [];
-  for (let j = 0; j < cols; j ++){ row.push(emptyColor); }
-  board.push(row);
-}
-
-const pieces = [ iPiece, jPiece, lPiece, oPiece,
-                        sPiece, tPiece, zPiece ]
-const colors = [ "3", "6", "8",
-                             "1", "7", "4", "5" ]
-
-let fallingPiece;
-let fallingPieceColor;
-let numFallingPieceRows, numFallingPieceCols;
-let fallingPieceRow, fallingPieceCol;
-
-function newFallingPiece() {
-  let randomIndex = Math.floor(Math.random() * pieces.length);
-  fallingPiece = pieces[randomIndex]
-  fallingPieceColor = colors[randomIndex]
-
-  numFallingPieceRows = fallingPiece.length;
-  numFallingPieceCols = fallingPiece[0].length;
-  fallingPieceRow = 0;
-  fallingPieceCol = Math.floor(cols / 2) - Math.floor(numFallingPieceCols / 2)
-}
-
-function placeFallingPiece() {
-  let fp = fallingPiece;
-  for (let r = 0; r < fp.length; r ++) {
-    const row = fp[r]
-    for (let c = 0; c < fp[r].length; c++) {
-      const col = fp[r][c];
-      if (col) {
-        let boardRow = fallingPieceRow + r;
-        let boardCol = fallingPieceCol + c;
-        board[boardRow][boardCol] = fallingPieceColor
-      }
-    }
-  }
-  removeFullRows()
-}
-
-function generateEmpty2DList(rows, cols, fill) {
-  const grid = [];
-  for (let i = 0; i < rows; i ++) {
-    const row = [];
-    for (let j = 0; j < cols; j ++) {
-      row.push(fill ? fill : "");
-    }
-    grid.push(row);
-  }
-  return grid
-}
-
-function rotateFallingPiece() {
-  const oldRows = numFallingPieceRows;
-  const oldCols = numFallingPieceCols;
-  const oldPiece = fallingPiece;
-  const oldRow = fallingPieceRow;
-  const oldCol = fallingPieceCol;
-  let rotated = generateEmpty2DList(oldCols, oldRows)
-
-  let newRows = oldCols
-  let newCols = oldRows
-
-  for (let c = 0; c < oldCols; c ++) {
-    for (let r = 0; r < oldRows; r ++) {
-      rotated[c][r] = oldPiece[r][c];
-    }
-  }
-
-  for (let r = 0; r < newRows; r ++) {
-    rotated[r].reverse()
-  }
-
-  numFallingPieceRows = newRows;
-  numFallingPieceCols = newCols;
-  fallingPiece = rotated;
-
-  let newRow = oldRow + Math.floor(oldRows / 2) - Math.floor(newRows / 2)
-  let newCol = oldCol + Math.floor(oldCols / 2) - Math.floor(newCols / 2)
-
-  fallingPieceRow = newRow
-  fallingPieceCol = newCol;
-
-  if(!fallingPieceIsLegal()) {
-    fallingPiece = oldPiece;
-    numFallingPieceRows = oldRows;
-    numFallingPieceCols = oldCols;
-    fallingPieceRow = oldRow;
-    fallingPieceCol = oldCol;
-  }
-  
-}
-
-function fallingPieceIsLegal() {
-  for (let r = 0; r < fallingPiece.length; r ++) {
-    const row = fallingPiece[r]
-    for (let c = 0; c < row.length; c ++) {
-      const col = fallingPiece[r][c];
-      if (!col) continue;
-      const x = r + fallingPieceRow;
-      const y = c + fallingPieceCol;
-      const withinBoundsX = x >= 0 && x < rows;
-      const withinBoundsY = y >= 0 && y < cols;
-      if (!withinBoundsX || !withinBoundsY) {
-        return false;
-      }
-      if (board[x][y] != emptyColor) {
-        return false
-      }
-    }
-  }
-  return true;
-}
-
-function moveFallingPiece(drow, dcol) {
-  fallingPieceRow += drow;
-  fallingPieceCol += dcol;
-  if (!fallingPieceIsLegal()) {
-    fallingPieceRow -= drow;
-    fallingPieceCol -= dcol;
-    return false;
-  }
-  return true;
-}
-
-function removeFullRows(app) {
-  let fullRows = 0;
-  const newBoard = [];
-  board.forEach(row => {
-    let isFull = true;
-    row.forEach(col => {
-      if (col == emptyColor) {
-        isFull = false;
-      }
-    })
-    if (isFull) {
-      fullRows += 1;
-    }
-    else {
-      newBoard.push(row)
-    }
-  })
-  for (let r = 0; r < fullRows; r ++) {
-    newBoard.splice(0, 0, Array.from(emptyColor.repeat(cols)))
-  }
-  board = newBoard
-  score += fullRows;
-}
-
-// each "sprite" contains 16 actual cells, x, y are the top left coords
-function genPiece(xCoord, yCoord) {
-  let sprite = []; // 4x4 of 4x4s
-  for (let i = 0; i < 4; i ++) {
-    let rows = []; // 4 4x4s
-    for (let j = 0; j < 4; j ++){
-      const x = i + xCoord;
-      const y = j + yCoord;
-      let cell = board[x][y];
-      const withinFallingPieceX = fallingPieceRow <= x && x < fallingPieceRow + numFallingPieceRows
-      const withinFallingPieceY = fallingPieceCol <= y && y < fallingPieceCol + numFallingPieceCols
-      if (withinFallingPieceX && withinFallingPieceY) {
-        if (fallingPiece[x - fallingPieceRow][y - fallingPieceCol]) {
-          cell = fallingPieceColor;
-        }
-      }
-      let row = []; // 4x4
-      for (let r = 0; r < 4; r ++) {
-        let miniRow = []; // 1x4
-        for (let c = 0; c < 4; c ++) {
-          if ((r == 0 || c == 0 || r == 3 || c == 3) && borders) { // make borders black
-            miniRow.push(emptyColor);
-          }
-          else {
-            miniRow.push(cell);
-          }
-        }
-        row.push(miniRow);
-      }
-      rows.push(row)
-    }
-    sprite.push(rows);
-  }
-  return boardToString(sprite);
-}
-
-function boardToString(board) {
-  // board is a 4x4 of 4x4s
-  let string = "";
-  for (const bigRow of board) {
-    let bigRowString = "\n\n\n";
-    for (const cell of bigRow) {
-      // 4x4
-      let row = "";
-      for (let c = 0; c < 4; c ++) {
-        for (let r = 0; r < 4; r ++) {
-          row += (cell[r][c]);
-        }
-        row += "\n"
-      }
-
-      let rows = bigRowString.split("\n")
-      let newRows = row.trim().split("\n")
-      bigRowString = rows.map((r, i) => r + newRows[i]).join("\n")
-    }
-    string += bigRowString
-    string += "\n"
-  }
-  return string;
-}
-
-
-function loadPieces() {
-  const legend = [];
-  let i = 0;
-  for (let r = 0; r < rows; r += 4){
-    for (let c = 0; c < cols; c += 4) {
-      legend.push([`${i}`, genPiece(r, c)])
-      i += 1;
-    }
-  }
-  setLegend(...legend)
-}
-
-function start() {
-  fallingPiece = undefined;
-  fallingPieceRow = undefined;
-  fallingPieceCol = undefined;
-  fallingPieceColor = undefined;
-  numFallingPieceRows = undefined;
-  numFallingPieceCols = undefined;
-
-  board = generateEmpty2DList(rows, cols, emptyColor)
-  newFallingPiece();
-  loadPieces();
-  score = 0;
-}
-
-
-start();
-setBackground(background);
+const W = 10
+const H = 8
 
 setMap(`
-01
-23
-45
+..........
+..........
+..........
+..........
+..........
+..........
+..........
+..........
 `)
 
-setSolids([]);
+// ====================
+// BLOCK SPRITES
+// ====================
 
-setInterval(() => {
-  getAll().forEach((sprite) => {
-    sprite.remove();
+const red = "r"
+const blue = "b"
+const green = "g"
+const yellow = "y"
+const purple = "p"
+const cyan = "c"
+const orange = "o"
+const ghost = "h"
+const black = "x"
+
+const redBitmap = bitmap`
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333
+3333333333333333`
+
+const blueBitmap = bitmap`
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444
+4444444444444444`
+
+const greenBitmap = bitmap`
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555
+5555555555555555`
+
+const yellowBitmap = bitmap`
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666
+6666666666666666`
+
+const purpleBitmap = bitmap`
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777
+7777777777777777`
+
+const cyanBitmap = bitmap`
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888
+8888888888888888`
+
+const orangeBitmap = bitmap`
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999
+9999999999999999`
+
+const ghostBitmap = bitmap`
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111
+1111111111111111`
+
+const blackBitmap = bitmap`
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000`
+
+// ====================
+// GAME OVER LETTERS
+// ====================
+
+const G = bitmap`
+0000000000000000
+0000033333330000
+0000033333330000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300333333000
+0003300333333000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0000033333330000
+0000033333330000
+0000000000000000`
+
+const A = bitmap`
+0000000000000000
+0000033333330000
+0000033333330000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003333333333000
+0003333333333000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0000000000000000`
+
+const M = bitmap`
+0000000000000000
+0003300000033000
+0003300000033000
+0003333003333000
+0003333003333000
+0003303330333000
+0003303330333000
+0003303330333000
+0003303330333000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0000000000000000`
+
+const E = bitmap`
+0000000000000000
+0003333333333000
+0003333333333000
+0003300000000000
+0003300000000000
+0003300000000000
+0003300000000000
+0003333333330000
+0003333333330000
+0003300000000000
+0003300000000000
+0003300000000000
+0003300000000000
+0003333333333000
+0003333333333000
+0000000000000000`
+
+const O = bitmap`
+0000000000000000
+0000033333330000
+0000033333330000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0000033333330000
+0000033333330000
+0000000000000000`
+
+const V = bitmap`
+0000000000000000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0003300000033000
+0000033000330000
+0000033000330000
+0000033000330000
+0000003333000000
+0000003333000000
+0000000000000000
+0000000000000000`
+
+const R = bitmap`
+0000000000000000
+0003333333300000
+0003333333300000
+0003300000333000
+0003300000333000
+0003300000333000
+0003300000333000
+0003333333300000
+0003333333300000
+0003300330000000
+0003300330000000
+0003300033000000
+0003300033000000
+0003300003300000
+0003300000330000
+0000000000000000`
+
+// ====================
+// LEGEND
+// ====================
+
+setLegend(
+  [red, redBitmap],
+  [blue, blueBitmap],
+  [green, greenBitmap],
+  [yellow, yellowBitmap],
+  [purple, purpleBitmap],
+  [cyan, cyanBitmap],
+  [orange, orangeBitmap],
+  [ghost, ghostBitmap],
+  [black, blackBitmap],
+
+  ["q", G],
+  ["t", A],
+  ["u", M],
+  ["f", E],
+  ["n", O],
+  ["v", V],
+  ["z", R]
+)
+
+// ====================
+// SOUNDS
+// ====================
+
+const moveSound = tune`
+100: C5~100,
+100: E5~100`
+
+const rotateSound = tune`
+100: G5~100,
+100: B5~100`
+
+const dropSound = tune`
+100: C4~100,
+100: C3~100`
+
+const lineClearSound = tune`
+100: C5~100,
+100: E5~100,
+100: G5~100,
+100: C6~100`
+
+const gameOverSound = tune`
+150: C4~150,
+150: B3~150,
+150: A3~150,
+300: G3~300`
+
+const restartSound = tune`
+100: C5~100,
+100: G5~100,
+100: C6~100`
+
+// ====================
+// TETROMINOES
+// ====================
+
+const pieces = [
+
+  {
+    color: red,
+    blocks: [
+      [0, 0],
+      [1, 0],
+      [0, 1],
+      [1, 1]
+    ]
+  },
+
+  {
+    color: blue,
+    blocks: [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [3, 0]
+    ]
+  },
+
+  {
+    color: green,
+    blocks: [
+      [1, 0],
+      [0, 1],
+      [1, 1],
+      [2, 1]
+    ]
+  },
+
+  {
+    color: yellow,
+    blocks: [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [2, 1]
+    ]
+  },
+
+  {
+    color: purple,
+    blocks: [
+      [1, 0],
+      [2, 0],
+      [0, 1],
+      [1, 1]
+    ]
+  },
+
+  {
+    color: cyan,
+    blocks: [
+      [0, 0],
+      [0, 1],
+      [0, 2],
+      [1, 2]
+    ]
+  },
+
+  {
+    color: orange,
+    blocks: [
+      [2, 0],
+      [0, 1],
+      [1, 1],
+      [2, 1]
+    ]
+  }
+
+]
+
+// ====================
+// GAME STATE
+// ====================
+
+let board = []
+
+let currentPiece = null
+let currentX = 0
+let currentY = 0
+let currentRotation = 0
+
+let gameOver = false
+
+let gravityTimer = null
+let gameOverAnimation = null
+
+// ====================
+// SCORING
+// ====================
+
+let score = 0
+let rowsWithCurrentPiece = 0
+
+// ====================
+// SCORE DISPLAY
+// ====================
+
+function showScore() {
+
+  clearText()
+
+  addText("SCORE " + score, {
+    x: 0,
+    y: 0,
+    color: "3"
   })
-  loadPieces();
-  setMap(`
-  01
-  23
-  45
-  `)
 
-  clearText();
-  addText(`${score}`, { x: 14, y: 1, color: color`2` })
-}, 30)
+}
 
-setInterval(() => {
-  if (!moveFallingPiece(1, 0)) {
-    placeFallingPiece();
-    newFallingPiece();
-  }
+// ====================
+// BOARD
+// ====================
 
-  for (let c = 0; c < cols; c ++) {
-    if (board[0][c] != emptyColor) {
-      start();
+function createBoard() {
+
+  board = []
+
+  for (let y = 0; y < H; y++) {
+
+    board[y] = []
+
+    for (let x = 0; x < W; x++) {
+      board[y][x] = null
     }
-  }
-}, 700)
 
-onInput("d", () => { moveFallingPiece(0, 1) })
-onInput("a", () => { moveFallingPiece(0, -1) })
-onInput("s", () => { moveFallingPiece(1, 0) })
-onInput("l", () => { rotateFallingPiece() })
-onInput("k", () => { start() })
+  }
+
+}
+
+// ====================
+// ROTATION
+// ====================
+
+function getRotatedBlocks(piece, rotation) {
+
+  let result = []
+
+  for (let i = 0; i < piece.blocks.length; i++) {
+
+    let x = piece.blocks[i][0]
+    let y = piece.blocks[i][1]
+
+    let rx = x
+    let ry = y
+
+    if (rotation === 1) {
+      rx = -y
+      ry = x
+    }
+
+    if (rotation === 2) {
+      rx = -x
+      ry = -y
+    }
+
+    if (rotation === 3) {
+      rx = y
+      ry = -x
+    }
+
+    result.push([rx, ry])
+
+  }
+
+  let minX = 999
+  let minY = 999
+
+  for (let i = 0; i < result.length; i++) {
+
+    if (result[i][0] < minX) {
+      minX = result[i][0]
+    }
+
+    if (result[i][1] < minY) {
+      minY = result[i][1]
+    }
+
+  }
+
+  for (let i = 0; i < result.length; i++) {
+
+    result[i][0] -= minX
+    result[i][1] -= minY
+
+  }
+
+  return result
+
+}
+
+// ====================
+// COLLISION
+// ====================
+
+function canMove(piece, px, py, rotation) {
+
+  let blocks = getRotatedBlocks(piece, rotation)
+
+  for (let i = 0; i < blocks.length; i++) {
+
+    let x = px + blocks[i][0]
+    let y = py + blocks[i][1]
+
+    if (x < 0 || x >= W) {
+      return false
+    }
+
+    if (y >= H) {
+      return false
+    }
+
+    if (y >= 0 && board[y][x] !== null) {
+      return false
+    }
+
+  }
+
+  return true
+
+}
+
+// ====================
+// DRAW BOARD
+// ====================
+
+function drawBoard() {
+
+  for (let y = 0; y < H; y++) {
+
+    for (let x = 0; x < W; x++) {
+
+      clearTile(x, y)
+
+      if (board[y][x] !== null) {
+        addSprite(x, y, board[y][x])
+      }
+
+    }
+
+  }
+
+}
+
+// ====================
+// DRAW CURRENT PIECE
+// ====================
+
+function drawCurrentPiece() {
+
+  let blocks = getRotatedBlocks(
+    currentPiece,
+    currentRotation
+  )
+
+  for (let i = 0; i < blocks.length; i++) {
+
+    let x = currentX + blocks[i][0]
+    let y = currentY + blocks[i][1]
+
+    if (
+      x >= 0 &&
+      x < W &&
+      y >= 0 &&
+      y < H
+    ) {
+
+      clearTile(x, y)
+      addSprite(x, y, currentPiece.color)
+
+    }
+
+  }
+
+}
+
+// ====================
+// GHOST PIECE
+// ====================
+
+function getGhostY() {
+
+  let ghostY = currentY
+
+  while (
+    canMove(
+      currentPiece,
+      currentX,
+      ghostY + 1,
+      currentRotation
+    )
+  ) {
+
+    ghostY++
+
+  }
+
+  return ghostY
+
+}
+
+function drawGhost() {
+
+  let ghostY = getGhostY()
+
+  let blocks = getRotatedBlocks(
+    currentPiece,
+    currentRotation
+  )
+
+  for (let i = 0; i < blocks.length; i++) {
+
+    let x = currentX + blocks[i][0]
+    let y = ghostY + blocks[i][1]
+
+    if (
+      y >= 0 &&
+      y < H &&
+      board[y][x] === null
+    ) {
+
+      if (
+        y !== currentY + blocks[i][1]
+      ) {
+
+        clearTile(x, y)
+        addSprite(x, y, ghost)
+
+      }
+
+    }
+
+  }
+
+}
+
+// ====================
+// DRAW GAME
+// ====================
+
+function drawGame() {
+
+  drawBoard()
+  drawGhost()
+  drawCurrentPiece()
+  showScore()
+
+}
+
+// ====================
+// LOCK PIECE
+// ====================
+
+function lockPiece() {
+
+  let blocks = getRotatedBlocks(
+    currentPiece,
+    currentRotation
+  )
+
+  for (let i = 0; i < blocks.length; i++) {
+
+    let x = currentX + blocks[i][0]
+    let y = currentY + blocks[i][1]
+
+    if (
+      x >= 0 &&
+      x < W &&
+      y >= 0 &&
+      y < H
+    ) {
+
+      board[y][x] = currentPiece.color
+
+    }
+
+  }
+
+  playTune(dropSound)
+
+  clearLines()
+
+  spawnPiece()
+
+}
+
+// ====================
+// CLEAR LINES
+// ====================
+
+function clearLines() {
+
+  let linesCleared = 0
+
+  for (let y = H - 1; y >= 0; y--) {
+
+    let full = true
+
+    for (let x = 0; x < W; x++) {
+
+      if (board[y][x] === null) {
+        full = false
+        break
+      }
+
+    }
+
+    if (full) {
+
+      linesCleared++
+
+      board.splice(y, 1)
+
+      let newRow = []
+
+      for (let x = 0; x < W; x++) {
+        newRow.push(null)
+      }
+
+      board.unshift(newRow)
+
+      y++
+
+    }
+
+  }
+
+  // ====================
+  // SCORING
+  // ====================
+
+  if (linesCleared > 0) {
+
+    playTune(lineClearSound)
+
+    for (let i = 0; i < linesCleared; i++) {
+
+      rowsWithCurrentPiece++
+
+      score += rowsWithCurrentPiece * 10
+
+    }
+
+  }
+
+}
+
+// ====================
+// SPAWN PIECE
+// ====================
+
+function spawnPiece() {
+
+  // New piece = reset row bonus
+  rowsWithCurrentPiece = 0
+
+  let index =
+    Math.floor(
+      Math.random() * pieces.length
+    )
+
+  currentPiece = pieces[index]
+
+  currentRotation = 0
+
+  let blocks = getRotatedBlocks(
+    currentPiece,
+    currentRotation
+  )
+
+  let maxX = 0
+
+  for (let i = 0; i < blocks.length; i++) {
+
+    if (blocks[i][0] > maxX) {
+      maxX = blocks[i][0]
+    }
+
+  }
+
+  currentX =
+    Math.floor(
+      (W - (maxX + 1)) / 2
+    )
+
+  currentY = 0
+
+  if (
+    !canMove(
+      currentPiece,
+      currentX,
+      currentY,
+      currentRotation
+    )
+  ) {
+
+    startGameOver()
+    return
+
+  }
+
+  drawGame()
+
+}
+
+// ====================
+// MOVE LEFT
+// ====================
+
+function moveLeft() {
+
+  if (gameOver) {
+    return
+  }
+
+  if (
+    canMove(
+      currentPiece,
+      currentX - 1,
+      currentY,
+      currentRotation
+    )
+  ) {
+
+    currentX--
+
+    playTune(moveSound)
+
+    drawGame()
+
+  }
+
+}
+
+// ====================
+// MOVE RIGHT
+// ====================
+
+function moveRight() {
+
+  if (gameOver) {
+    return
+  }
+
+  if (
+    canMove(
+      currentPiece,
+      currentX + 1,
+      currentY,
+      currentRotation
+    )
+  ) {
+
+    currentX++
+
+    playTune(moveSound)
+
+    drawGame()
+
+  }
+
+}
+
+// ====================
+// MOVE DOWN
+// ====================
+
+function moveDown() {
+
+  if (gameOver) {
+    return
+  }
+
+  if (
+    canMove(
+      currentPiece,
+      currentX,
+      currentY + 1,
+      currentRotation
+    )
+  ) {
+
+    currentY++
+
+    drawGame()
+
+  } else {
+
+    lockPiece()
+
+  }
+
+}
+
+// ====================
+// ROTATE CLOCKWISE
+// ====================
+
+function rotateClockwise() {
+
+  if (gameOver) {
+    return
+  }
+
+  let newRotation =
+    (currentRotation + 1) % 4
+
+  if (
+    canMove(
+      currentPiece,
+      currentX,
+      currentY,
+      newRotation
+    )
+  ) {
+
+    currentRotation = newRotation
+
+    playTune(rotateSound)
+
+    drawGame()
+
+  }
+
+}
+
+// ====================
+// ROTATE COUNTER-CLOCKWISE
+// ====================
+
+function rotateCounterClockwise() {
+
+  if (gameOver) {
+    return
+  }
+
+  let newRotation =
+    (currentRotation + 3) % 4
+
+  if (
+    canMove(
+      currentPiece,
+      currentX,
+      currentY,
+      newRotation
+    )
+  ) {
+
+    currentRotation = newRotation
+
+    playTune(rotateSound)
+
+    drawGame()
+
+  }
+
+}
+
+// ====================
+// HARD DROP
+// ====================
+
+function hardDrop() {
+
+  if (gameOver) {
+    return
+  }
+
+  while (
+    canMove(
+      currentPiece,
+      currentX,
+      currentY + 1,
+      currentRotation
+    )
+  ) {
+
+    currentY++
+
+  }
+
+  lockPiece()
+
+}
+
+// ====================
+// GAME OVER DISPLAY
+// ====================
+
+function showBigGameOver() {
+
+  clearText()
+
+  // Make entire screen black
+
+  for (let y = 0; y < H; y++) {
+
+    for (let x = 0; x < W; x++) {
+
+      clearTile(x, y)
+
+      addSprite(
+        x,
+        y,
+        black
+      )
+
+    }
+
+  }
+
+  // GAME
+
+  clearTile(1, 1)
+  clearTile(3, 1)
+  clearTile(5, 1)
+  clearTile(7, 1)
+
+  addSprite(1, 1, "q")
+  addSprite(3, 1, "t")
+  addSprite(5, 1, "u")
+  addSprite(7, 1, "f")
+
+  // OVER
+
+  clearTile(1, 4)
+  clearTile(3, 4)
+  clearTile(5, 4)
+  clearTile(7, 4)
+
+  addSprite(1, 4, "n")
+  addSprite(3, 4, "v")
+  addSprite(5, 4, "f")
+  addSprite(7, 4, "z")
+
+}
+
+// ====================
+// GAME OVER DRIP
+// ====================
+
+function startGameOver() {
+
+  if (gameOver) {
+    return
+  }
+
+  gameOver = true
+
+  playTune(gameOverSound)
+
+  clearText()
+
+  let dripHeight = [
+    0,
+    1,
+    0,
+    2,
+    1,
+    0,
+    2,
+    1,
+    0,
+    1
+  ]
+
+  let finished = false
+
+  gameOverAnimation = setInterval(() => {
+
+    for (let x = 0; x < W; x++) {
+
+      let growth =
+        Math.floor(
+          Math.random() * 2
+        ) + 1
+
+      dripHeight[x] += growth
+
+      if (dripHeight[x] > H) {
+        dripHeight[x] = H
+      }
+
+      for (
+        let y = 0;
+        y < dripHeight[x];
+        y++
+      ) {
+
+        clearTile(x, y)
+        addSprite(x, y, black)
+
+      }
+
+    }
+
+    for (let x = 0; x < W; x++) {
+
+      if (
+        dripHeight[x] < H &&
+        Math.random() < 0.35
+      ) {
+
+        let dripLength =
+          Math.floor(
+            Math.random() * 2
+          ) + 1
+
+        for (
+          let d = 0;
+          d < dripLength &&
+          dripHeight[x] + d < H;
+          d++
+        ) {
+
+          clearTile(
+            x,
+            dripHeight[x] + d
+          )
+
+          addSprite(
+            x,
+            dripHeight[x] + d,
+            black
+          )
+
+        }
+
+      }
+
+    }
+
+    finished = true
+
+    for (let x = 0; x < W; x++) {
+
+      if (dripHeight[x] < H) {
+        finished = false
+      }
+
+    }
+
+    if (finished) {
+
+      clearInterval(gameOverAnimation)
+
+      gameOverAnimation = null
+
+      for (let y = 0; y < H; y++) {
+
+        for (let x = 0; x < W; x++) {
+
+          clearTile(x, y)
+
+          addSprite(
+            x,
+            y,
+            black
+          )
+
+        }
+
+      }
+
+      showBigGameOver()
+
+    }
+
+  }, 130)
+
+}
+
+// ====================
+// RESTART
+// ====================
+
+function restartGame() {
+
+  if (gravityTimer !== null) {
+    clearInterval(gravityTimer)
+  }
+
+  if (gameOverAnimation !== null) {
+    clearInterval(gameOverAnimation)
+    gameOverAnimation = null
+  }
+
+  gameOver = false
+
+  score = 0
+  rowsWithCurrentPiece = 0
+
+  clearText()
+
+  createBoard()
+
+  playTune(restartSound)
+
+  spawnPiece()
+
+  gravityTimer = setInterval(() => {
+
+    moveDown()
+
+  }, 800)
+
+}
+
+// ====================
+// CONTROLS
+// ====================
+
+onInput("a", () => {
+  moveLeft()
+})
+
+onInput("d", () => {
+  moveRight()
+})
+
+onInput("s", () => {
+  moveDown()
+})
+
+onInput("w", () => {
+  rotateClockwise()
+})
+
+onInput("i", () => {
+  rotateClockwise()
+})
+
+onInput("j", () => {
+  hardDrop()
+})
+
+onInput("k", () => {
+  rotateCounterClockwise()
+})
+
+onInput("l", () => {
+  restartGame()
+})
+
+// ====================
+// START GAME
+// ====================
+
+restartGame()
